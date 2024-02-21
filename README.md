@@ -32,7 +32,7 @@
      'prestashop' => [
          'class' => 'magicalella\prestashop\Prestashop',
          'url' => 'URL Site prestashop',
-         'debug' => treu/false,
+         'debug' => true/false,
          'version' => 'version PS'
      ],
  ]
