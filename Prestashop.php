@@ -61,7 +61,7 @@ class Prestashop extends Component
      *
      * @throws PrestashopException if curl is not loaded
      */
-    function init()
+    public function init()
     {
         if (!extension_loaded('curl')) {
             throw new PrestashopException(
