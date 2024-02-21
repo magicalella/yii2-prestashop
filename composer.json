@@ -1,0 +1,26 @@
+{
+  "name": "magicalella/yii2-prestashop",
+  "description": "Prestashop component for Yii 2 framework",
+  "type": "yii2-extension",
+  "license": "MIT",
+  "minimum-stability": "dev",
+  "authors": [
+    {
+      "name": "Raffaella Lollini",
+      "email": "raffaella.lollini@magilla.agency"
+    }
+  ],
+  "require": {
+    "php": ">=5.4.0",
+    "yiisoft/yii2": "~2.0.6"
+  },
+  "require-dev": {
+    "php": ">=5.4.0",
+    "yiisoft/yii2": "~2.0.6"
+  },
+  "autoload": {
+    "psr-4": {
+      "magicalella\\prestashop\\": ""
+    }
+  }
+}
