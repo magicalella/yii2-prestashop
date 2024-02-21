@@ -32,6 +32,7 @@
      'prestashop' => [
          'class' => 'magicalella\prestashop\Prestashop',
          'url' => 'URL Site prestashop',
+         'key' => 'API Keyu WebService PS',
          'debug' => true/false,
          'version' => 'version PS'
      ],

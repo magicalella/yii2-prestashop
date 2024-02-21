@@ -19,16 +19,16 @@ class Prestashop extends Component
     
     
     /** @var string Shop URL */
-    protected $url;
+    public $url;
     
     /** @var string Authentication key */
-    protected $key;
+    public $key;
     
     /** @var boolean is debug activated */
-    protected $debug;
+    public $debug;
     
     /** @var string PS version */
-    protected $version;
+    public $version;
     
     /** @var string Minimal version of PrestaShop to use with this library */
     const psCompatibleVersionsMin = '1.4.0.0';
