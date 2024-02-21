@@ -76,6 +76,7 @@ class Prestashop extends Component
         }
         $this->debug = ($this->debug)?$this->debug:true;
         $this->version = 'unknown';
+        parent::init();
     }
     
     /**
