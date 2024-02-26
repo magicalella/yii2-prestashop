@@ -121,6 +121,8 @@ class Prestashop extends Component
         }
     
         if (!empty($error_message)) {
+            if(!empty($request) && key_exists('response',$request)){
+                if(!empty($request['response'])){
             $response = $this->parseXML($request['response']);
             $errors = $response->children()->children();
             if ($errors && count($errors) > 0) {
@@ -130,7 +132,12 @@ class Prestashop extends Component
             }
             $error_label = 'This call to PrestaShop Web Services failed and returned an HTTP status of %d. That means: %s.';
             throw new PrestashopException(sprintf($error_label, $request['status_code'], $error_message));
+                }
+            }else{
+                echo $error_message;
         }
+            
+    }
     }
     
     /**
@@ -265,6 +272,7 @@ class Prestashop extends Component
      */
     protected function parseXML($response)
     {
+        $xml = '';
         if ($response != '') {
             libxml_clear_errors();
             libxml_use_internal_errors(true);
@@ -274,10 +282,11 @@ class Prestashop extends Component
                 libxml_clear_errors();
                 throw new PrestashopException('HTTP XML response is not parsable: ' . $msg);
             }
-            return $xml;
+            
         } else {
-            throw new PrestashopException('HTTP response is empty');
+            //throw new PrestashopException('HTTP response is empty');
         }
+        return $xml;
     }
     
     /**
