@@ -33,7 +33,7 @@ class Prestashop extends Component
     /** @var string Minimal version of PrestaShop to use with this library */
     const psCompatibleVersionsMin = '1.4.0.0';
     /** @var string Maximal version of PrestaShop to use with this library */
-    const psCompatibleVersionsMax = '8.1.1';
+    const psCompatibleVersionsMax = '9.1.1';
     const STATUS_SUCCESS = true;
     const STATUS_ERROR = false;
     
