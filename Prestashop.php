@@ -2,9 +2,11 @@
 
 namespace magicalella\prestashop;
 
+use Yii;
 use yii\base\Component;
 use yii\base\InvalidConfigException;
 use yii\base\Exception;
+
 
 /**
  * Class Prestashop
@@ -29,6 +31,8 @@ class Prestashop extends Component
     
     /** @var string PS version */
     public $version;
+    
+    public $log;
     
     /** @var string Minimal version of PrestaShop to use with this library */
     const psCompatibleVersionsMin = '1.4.0.0';
@@ -89,9 +93,11 @@ class Prestashop extends Component
      * @param array $request Response elements of CURL request
      *
      * @throws PrestashopException if HTTP status code is not 200 or 201
+     * return true/false
      */
     protected function checkStatusCode($request)
     {
+        $return  = true;
         switch ($request['status_code']) {
             case 200:
             case 201:
@@ -115,12 +121,15 @@ class Prestashop extends Component
                 $error_message = 'Internal Server Error';
                 break;
             default:
-                throw new PrestashopException(
-                    'This call to PrestaShop Web Services returned an unexpected HTTP status of:' . $request['status_code']
-                );
+                $error_message = 'This call to PrestaShop Web Services returned an unexpected HTTP status of:' . $request['status_code'];
+                
+                // throw new PrestashopException(
+                //     'This call to PrestaShop Web Services returned an unexpected HTTP status of:' . $request['status_code']
+                // );
         }
     
         if (!empty($error_message)) {
+            $return = false;
             if(!empty($request) && key_exists('response',$request)){
                 if(!empty($request['response'])){
             $response = $this->parseXML($request['response']);
@@ -131,13 +140,15 @@ class Prestashop extends Component
                 }
             }
             $error_label = 'This call to PrestaShop Web Services failed and returned an HTTP status of %d. That means: %s.';
-            throw new PrestashopException(sprintf($error_label, $request['status_code'], $error_message));
+                    //throw new PrestashopException(sprintf($error_label, $request['status_code'], $error_message));
+                    $this->log = $error_label.' '.$error_message;
+                    Yii::error($this->log);
                 }
             }else{
                 echo $error_message;
         }
-            
     }
+        return $return ;
     }
     
     /**
@@ -273,12 +284,26 @@ class Prestashop extends Component
     protected function parseXML($response)
     {
         $xml = '';
+        $errors = [];
+        $msg = '';
         if ($response != '') {
             libxml_clear_errors();
             libxml_use_internal_errors(true);
-            $xml = simplexml_load_string(trim($response), 'SimpleXMLElement', LIBXML_NOCDATA);
+            if (LIBXML_VERSION < 20900) {
+                // Avoid load of external entities (security problem).
+                // Required only if LIBXML_VERSION < 20900
+                libxml_disable_entity_loader(true);
+            }
+            $xml = simplexml_load_string(trim($response), 'SimpleXMLElement', LIBXML_NOCDATA|LIBXML_NONET);
+            
             if (libxml_get_errors()) {
-                $msg = var_export(libxml_get_errors(), true);
+                // echo $response;
+                // exit();
+                $errors = libxml_get_errors();
+                foreach ($errors as $error) {
+                    $msg .= $this->display_xml_error($error, $xml);
+                }
+                //$msg = var_export(libxml_get_errors(), true);
                 libxml_clear_errors();
                 throw new PrestashopException('HTTP XML response is not parsable: ' . $msg);
             }
@@ -304,6 +329,7 @@ class Prestashop extends Component
     public function add($options)
     {
         $xml = '';
+        $result = true;
     
         if (isset($options['resource'], $options['postXml']) || isset($options['url'], $options['postXml'])) {
             $url = (isset($options['resource']) ? $this->url . '/api/' . $options['resource'] : $options['url']);
@@ -319,8 +345,11 @@ class Prestashop extends Component
         }
         $request = $this->executeRequest($url, array(CURLOPT_CUSTOMREQUEST => 'POST', CURLOPT_POSTFIELDS => $xml));
     
-        $this->checkStatusCode($request);
+        $result = $this->checkStatusCode($request);
+        if($result)
         return $this->parseXML($request['response']);
+        else
+            return false;
     }
     
     /**
@@ -356,6 +385,7 @@ class Prestashop extends Component
      */
     public function get($options)
     {
+        $result = true;
         if (isset($options['url'])) {
             $url = $options['url'];
         } elseif (isset($options['resource'])) {
@@ -376,15 +406,21 @@ class Prestashop extends Component
             if (count($url_params) > 0) {
                 $url .= '?' . http_build_query($url_params);
             }
+            
         } else {
             throw new PrestashopException('Bad parameters given');
         }
     
         $request = $this->executeRequest($url, array(CURLOPT_CUSTOMREQUEST => 'GET'));
     
-        $this->checkStatusCode($request);// check the response validity
-    
+    //     $this->checkStatusCode($request);// check the response validity
+    // 
+    //     return $this->parseXML($request['response']);
+        $result = $this->checkStatusCode($request);
+        if($result)
         return $this->parseXML($request['response']);
+        else
+            return false;
     }
     
     /**
@@ -440,6 +476,7 @@ class Prestashop extends Component
      */
     public function edit($options)
     {
+        $result = true;
         $xml = '';
         if (isset($options['url'])) {
             $url = $options['url'];
@@ -458,8 +495,57 @@ class Prestashop extends Component
         }
     
         $request = $this->executeRequest($url, array(CURLOPT_CUSTOMREQUEST => 'PUT', CURLOPT_POSTFIELDS => $xml));
-        $this->checkStatusCode($request);// check the response validity
+        // $this->checkStatusCode($request);// check the response validity
+        // return $this->parseXML($request['response']);
+        $result = $this->checkStatusCode($request);
+        if($result)
+            return $this->parseXML($request['response']);
+        else
+            return false;
+    }
+    
+    /**
+     * Edit (PATCH) a resource
+     * aggiorna solamente campi contenuti in XML
+     * <p>Unique parameter must take : <br><br>
+     * 'resource' => Resource name ,<br>
+     * 'id' => ID of a resource you want to edit,<br>
+     * 'putXml' => Modified XML string of a resource<br><br>
+     * Examples are given in the tutorial</p>
+     *
+     * @param array $options Array representing resource to edit.
+     *
+     * @return SimpleXMLElement
+     * @throws PrestashopException
+     */
+    public function editPatch($options)
+    {
+        $result = true;
+        $xml = '';
+        if (isset($options['url'])) {
+            $url = $options['url'];
+        } elseif ((isset($options['resource'], $options['id']) || isset($options['url'])) && $options['putXml']) {
+            $url = (isset($options['url']) ? $options['url'] :
+                $this->url . '/api/' . $options['resource'] . '/' . $options['id']);
+            $xml = $options['putXml'];
+            if (isset($options['id_shop'])) {
+                $url .= '&id_shop=' . $options['id_shop'];
+            }
+            if (isset($options['id_group_shop'])) {
+                $url .= '&id_group_shop=' . $options['id_group_shop'];
+            }
+        } else {
+            throw new PrestashopException('Bad parameters given');
+        }
+    
+        $request = $this->executeRequest($url, array(CURLOPT_CUSTOMREQUEST => 'PATCH', CURLOPT_POSTFIELDS => $xml));
+        // $this->checkStatusCode($request);// check the response validity
+        // return $this->parseXML($request['response']);
+        $result = $this->checkStatusCode($request);
+        if($result)
         return $this->parseXML($request['response']);
+        else
+            return false;
     }
     
     /**
@@ -491,6 +577,7 @@ class Prestashop extends Component
      */
     public function delete($options)
     {
+        $result = true;
         if (isset($options['url'])) {
             $url = $options['url'];
         } elseif (isset($options['resource']) && isset($options['id'])) {
@@ -509,8 +596,13 @@ class Prestashop extends Component
         }
     
         $request = $this->executeRequest($url, array(CURLOPT_CUSTOMREQUEST => 'DELETE'));
-        $this->checkStatusCode($request);// check the response validity
+        // $this->checkStatusCode($request);// check the response validity
+        // return true;
+        $result = $this->checkStatusCode($request);
+        if($result)
         return true;
+        else
+            return false;
     }
     
     
@@ -534,6 +626,37 @@ class Prestashop extends Component
             $result = $data;
         }
         return $result;
+    }
+    
+    protected function display_xml_error($error, $xml)
+    {
+        if(is_object($error) && !empty($error)){
+            $return  = $error->line - 1 . "\n";
+            $return .= str_repeat('-', $error->column) . "^\n";
+            
+            switch ($error->level) {
+                case LIBXML_ERR_WARNING:
+                    $return .= "Warning $error->code: ";
+                    break;
+                 case LIBXML_ERR_ERROR:
+                    $return .= "Error $error->code: ";
+                    break;
+                case LIBXML_ERR_FATAL:
+                    $return .= "Fatal Error $error->code: ";
+                    break;
+    }
+    
+            $return .= trim($error->message) .
+                       "\n  Line: $error->line" .
+                       "\n  Column: $error->column";
+            
+            if ($error->file) {
+                $return .= "\n  File: $error->file";
+            }
+        }
+       
+    
+        return $return .= "\n\n--------------------------------------------\n\n";
     }
     
     public function XML2JSON($xml) {
